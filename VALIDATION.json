@@ -1,0 +1,33 @@
+{
+  "version": "0.1.0-preview",
+  "validated_at": "2026-10-15T17:51:02+08:00",
+  "skill_schema": "passed",
+  "python_syntax": "passed",
+  "isolated_regression_tests": {
+    "passed": 15,
+    "failed": 0
+  },
+  "temporary_prepare": {
+    "reminder_native_build": "passed",
+    "optional_calendar_build": "passed",
+    "local_codesign": "passed",
+    "service_activated": false
+  },
+  "synthetic_integration": [
+    "receipt-date-filter",
+    "readonly-backfill-preview",
+    "explicit-queue-write",
+    "cursor-preserved",
+    "out-of-scope-refusal",
+    "readonly-doctor",
+    "no-service-activation"
+  ],
+  "privacy_scan": "passed for personal paths, named case identifiers, live URL parameters and runtime data exclusions",
+  "not_validated": [
+    "long-running stability",
+    "other users devices",
+    "real reminders/calendar writes by portable variant",
+    "all court websites",
+    "all Messages rich-text formats"
+  ]
+}
