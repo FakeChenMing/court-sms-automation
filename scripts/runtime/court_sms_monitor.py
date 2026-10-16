@@ -565,6 +565,52 @@ def weekly_folder(received_at: datetime) -> Path:
     return ROOT / name
 
 
+def readable_delivery_folder(received_at: datetime, case_number: str | None, delivery_key: str) -> Path:
+    """Keep transport identities in manifests, not user-visible folder names."""
+    week = weekly_folder(received_at)
+    # A retry must reuse the same batch even when case recognition improves.
+    for manifest_path in sorted(week.glob("*/*/.delivery_manifest.json"), key=lambda p: (p.parent.name.startswith("送达-"), str(p))):
+        if manifest_path.parent.is_symlink():
+            continue
+        try:
+            if json.loads(manifest_path.read_text()).get("delivery_key") == delivery_key:
+                return manifest_path.parent
+        except (OSError, ValueError):
+            raise RuntimeError("送达索引损坏，停止归档以免重复")
+    folder_name = sanitize_filename(case_number) if case_number else "待核案号"
+    case_folder = week / folder_name
+    if case_number and week.exists():
+        for candidate in sorted(week.iterdir()):
+            if candidate.is_dir() and normalize_case_number(candidate.name) == normalize_case_number(case_number) and normalize_case_number(case_number):
+                case_folder = candidate
+                break
+    prefix = received_at.strftime("%Y-%m-%d") + " 送达"
+    for batch in range(1, 10000):
+        candidate = case_folder / f"{prefix}（第{batch}批）"
+        if not candidate.exists():
+            candidate.mkdir(parents=True)
+            atomic_json(candidate / ".delivery_manifest.json", {"delivery_key": delivery_key, "received_at": received_at.isoformat(), "documents": []})
+            return candidate
+    raise RuntimeError("送达批次超过限制")
+
+
+def readable_document_path(folder: Path, base_name: str, doc_key: str, documents: list[dict], used: set[Path]) -> Path:
+    for doc in documents:
+        if doc.get("document_key") == doc_key:
+            old = Path(doc["path"])
+            if folder.resolve() not in old.resolve().parents:
+                raise RuntimeError("文书索引路径超出本次送达目录")
+            used.add(old)
+            return old
+    path = folder / base_name
+    index = 2
+    while path in used or path.exists():
+        path = folder / f"{Path(base_name).stem}（同名文书{index}）{Path(base_name).suffix}"
+        index += 1
+    used.add(path)
+    return path
+
+
 def handle_zxfw_delivery(
     url: str,
     case_number: str | None,
@@ -583,10 +629,12 @@ def handle_zxfw_delivery(
     )
     if response.get("code") != 200 or not isinstance(response.get("data"), list):
         raise RuntimeError(f"法院接口未返回材料清单：{response.get('msg', '未知错误')}")
-    folder_name = case_number or datetime.now().strftime("%Y年%m月%d日")
     delivery_key = hashlib.sha256((params["qdbh"] + "|" + params["sdbh"]).encode()).hexdigest()[:20]
-    case_folder = weekly_folder(received_at) / folder_name / ("送达-" + delivery_key)
-    manifest = {"delivery_key": delivery_key, "verified_at": datetime.now().isoformat(timespec="seconds"), "documents": []}
+    case_folder = readable_delivery_folder(received_at, case_number, delivery_key)
+    folder_name = case_folder.parent.name
+    old_manifest = json.loads((case_folder / ".delivery_manifest.json").read_text())
+    manifest = {"delivery_key": delivery_key, "received_at": received_at.isoformat(), "verified_at": datetime.now().isoformat(timespec="seconds"), "documents": list(old_manifest.get("documents", []))}
+    used_paths: set[Path] = set()
     if outcome is not None:
         outcome["folder_name"] = folder_name
         outcome["case_folder"] = str(case_folder)
@@ -600,7 +648,7 @@ def handle_zxfw_delivery(
             base_name += "." + extension
         doc_identity = str(item.get("c_wsbh") or item.get("c_stbh") or (str(index) + "|" + base_name))
         doc_key = hashlib.sha256(doc_identity.encode()).hexdigest()[:20]
-        destination = case_folder / ("文书-" + doc_key) / base_name
+        destination = readable_document_path(case_folder, base_name, doc_key, old_manifest.get("documents", []), used_paths)
         material = {
             "name": base_name,
             "path": str(destination),
@@ -611,8 +659,6 @@ def handle_zxfw_delivery(
             outcome["materials"].append(material)
         prepared_items.append((item.get("wjlj"), destination, material))
 
-    if len({str(entry[1]) for entry in prepared_items}) != len(prepared_items):
-        raise ValueError("送达清单文书标识重复，需人工核对")
     for file_url, destination, material in prepared_items:
         if not file_url:
             material["status"] = "失败（法院接口未提供下载地址）"
@@ -632,6 +678,7 @@ def handle_zxfw_delivery(
             material["status"] = "成功（文件已存在，未重复下载）"
         if destination.exists() and destination.stat().st_size > 0:
             available_files.append(destination)
+            manifest["documents"] = [d for d in manifest["documents"] if d.get("document_key") != material["document_key"]]
             manifest["documents"].append({"document_key": material["document_key"], "name": destination.name, "path": str(destination), "size": destination.stat().st_size, "sha256": hashlib.sha256(destination.read_bytes()).hexdigest()})
             atomic_json(case_folder / ".delivery_manifest.json", manifest)
     if outcome is not None:
