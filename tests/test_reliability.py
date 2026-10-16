@@ -59,7 +59,7 @@ class RepairTests(unittest.TestCase):
    with mock.patch.object(m,'http_json',return_value={'code':200,'data':[item]}),mock.patch.object(m,'urlopen',return_value=io.BytesIO(content)):
     new,available,_=m.handle_zxfw_delivery(url,'same-case',datetime.datetime(2026,10,15))
    paths.append(available[0]);self.assertEqual(available[0].read_bytes(),content)
-   manifest=json.loads((available[0].parent.parent/'.delivery_manifest.json').read_text());self.assertEqual(manifest['documents'][0]['sha256'],hashlib.sha256(content).hexdigest())
+   manifest=json.loads((available[0].parent/'.delivery_manifest.json').read_text());self.assertEqual(manifest['documents'][0]['sha256'],hashlib.sha256(content).hexdigest())
   self.assertNotEqual(paths[0],paths[1]);self.assertTrue(all(p.exists() for p in paths))
  def test_same_delivery_same_name_distinct_document_ids(self):
   import io
@@ -78,4 +78,46 @@ class RepairTests(unittest.TestCase):
   with mock.patch.object(m,'urlopen',return_value=io.BytesIO(b'<html>error</html>')):
    with self.assertRaises(ValueError):m.download_file('https://example.org/doc',p)
   self.assertEqual(p.read_bytes(),b'%PDF-existing')
+ def test_retry_reuses_readable_batch_and_filename(self):
+  import io
+  item={'c_wsmc':'传票','c_wjgs':'pdf','c_wsbh':'1','wjlj':'https://example.org/doc'}
+  url='https://zxfw.court.gov.cn/#/pagesAjkj/app/wssd/index?qdbh=q&sdbh=a'
+  results=[]
+  for _ in range(2):
+   with mock.patch.object(m,'http_json',return_value={'code':200,'data':[item]}),mock.patch.object(m,'urlopen',return_value=io.BytesIO(b'%PDF-one')):
+    results.append(m.handle_zxfw_delivery(url,'case',datetime.datetime(2026,10,15))[1][0])
+  self.assertEqual(results[0],results[1]);self.assertEqual(results[0].name,'传票.pdf')
+  self.assertEqual(results[0].parent.name,'2026-10-15 送达（第1批）')
+ def test_missing_case_is_explicit_and_receipt_dated(self):
+  folder=m.readable_delivery_folder(datetime.datetime(2026,10,12),None,'key')
+  self.assertEqual(folder.parent.name,'待核案号');self.assertIn('2026-10-12',folder.name)
+  self.assertEqual(m.readable_delivery_folder(datetime.datetime(2026,10,12),'new-case','key'),folder)
+ def test_reordered_same_name_documents_keep_identity(self):
+  import io
+  items=[{'c_wsmc':'传票','c_wjgs':'pdf','c_wsbh':str(i),'wjlj':'https://example.org/'+str(i)} for i in [1,2]]
+  url='https://zxfw.court.gov.cn/#/pagesAjkj/app/wssd/index?qdbh=q&sdbh=a'
+  before=None
+  for order in [items,list(reversed(items))]:
+   with mock.patch.object(m,'http_json',return_value={'code':200,'data':order}),mock.patch.object(m,'urlopen',side_effect=lambda request,**kw:io.BytesIO(b'%PDF-'+request.full_url.encode())):
+    files=m.handle_zxfw_delivery(url,'case',datetime.datetime(2026,10,15))[1]
+   after={p.name:p.read_bytes() for p in files}
+   if before is not None:self.assertEqual(before,after)
+   before=after
+ def test_broken_manifest_stops_instead_of_duplicate(self):
+  folder=m.readable_delivery_folder(datetime.datetime(2026,10,15),'case','key')
+  (folder/'.delivery_manifest.json').write_text('{')
+  with self.assertRaises(RuntimeError):m.readable_delivery_folder(datetime.datetime(2026,10,15),'case','key')
+ def test_upgrade_reuses_legacy_delivery_and_document(self):
+  import io,hashlib
+  key=hashlib.sha256(b'q|a').hexdigest()[:20]
+  doc_key=hashlib.sha256(b'doc1').hexdigest()[:20]
+  folder=m.weekly_folder(datetime.datetime(2026,10,15))/'case'/('送达-'+key)
+  old=folder/('文书-'+doc_key)/'传票.pdf';old.parent.mkdir(parents=True);old.write_bytes(b'%PDF-one')
+  (folder/'.delivery_manifest.json').write_text(json.dumps({'delivery_key':key,'documents':[{'document_key':doc_key,'path':str(old)}]}))
+  item={'c_wsmc':'传票','c_wjgs':'pdf','c_wsbh':'doc1','wjlj':'https://example.org/doc'}
+  with mock.patch.object(m,'http_json',return_value={'code':200,'data':[item]}),mock.patch.object(m,'urlopen',return_value=io.BytesIO(b'%PDF-one')):
+   _,files,_=m.handle_zxfw_delivery('https://zxfw.court.gov.cn/#/pagesAjkj/app/wssd/index?qdbh=q&sdbh=a','case',datetime.datetime(2026,10,15))
+  self.assertEqual(files,[old]);self.assertEqual(list(folder.parent.iterdir()),[folder])
+ def test_manifest_cannot_redirect_file_outside_delivery(self):
+  with self.assertRaises(RuntimeError):m.readable_document_path(self.root/'batch','doc.pdf','id',[{'document_key':'id','path':str(self.root/'outside.pdf')}],set())
 if __name__=='__main__':unittest.main()
