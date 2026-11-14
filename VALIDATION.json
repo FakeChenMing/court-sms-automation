@@ -1,36 +1,43 @@
 {
-  "version": "0.1.1-preview",
-  "validated_at": "2026-10-16T09:52:14+08:00",
-  "skill_schema": "passed",
-  "python_syntax": "passed",
-  "isolated_regression_tests": {
-    "passed": 21,
+  "version": "0.2.0-preview",
+  "validated_at": "2026-11-14T19:45:24.075091+08:00",
+  "scope": "public source preview; isolated tests only",
+  "skill_schema": "passed for root and document-workflow skills",
+  "relative_document_links": "passed",
+  "python_tests": {
+    "legacy_downloader": 21,
+    "document_workflow": 158,
+    "runtime_downloaders_and_ledger": 66,
+    "total_passed": 245,
     "failed": 0
   },
-  "temporary_prepare": {
-    "reminder_native_build": "passed",
-    "optional_calendar_build": "passed",
-    "local_codesign": "passed",
-    "service_activated": false,
-    "validated_version": "0.1.0-preview"
+  "node_tests": {
+    "suites_passed": 3,
+    "gpt_bridge_checks": 25,
+    "failed": 0
   },
-  "synthetic_integration": [
-    "receipt-date-filter",
-    "readonly-backfill-preview",
-    "explicit-queue-write",
-    "cursor-preserved",
-    "out-of-scope-refusal",
-    "readonly-doctor",
-    "no-service-activation"
-  ],
-  "privacy_scan": "passed for personal paths, named case identifiers, live URL parameters and runtime data exclusions",
+  "native_attachment_component": {
+    "compile": "passed",
+    "synthetic_state_tests": "passed",
+    "real_event_store_used_in_tests": false
+  },
+  "privacy_review": {
+    "status": "passed",
+    "reviewed_text_files": 130,
+    "private_case_operations_removed": true,
+    "runtime_data_or_credentials_included": false,
+    "synthetic_test_data_only": true
+  },
+  "default_review_model": "gpt-6.1-sol",
+  "reasoning_effort": "max",
+  "original_basic_runtime_changed": false,
+  "deployment": "manual integration required; no service activated by source package tests",
   "not_validated": [
-    "long-running stability",
-    "other users devices",
-    "real reminders/calendar writes by portable variant",
-    "all court websites",
-    "all Messages rich-text formats"
-  ],
-  "synthetic_integration_validated_version": "0.1.0-preview",
-  "current_change": "readable archive layout and legacy manifest reuse; native binaries unchanged"
+    "one-click integration on a new computer",
+    "other users model/OCR/legal-service credentials",
+    "real Calendar access under another user account",
+    "cross-device reception for a new installation",
+    "first scheduled website run on another installation",
+    "long-running stability on other systems"
+  ]
 }

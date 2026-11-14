@@ -15,3 +15,18 @@ jobs:
           python-version: '3.11'
       - name: Run isolated regression tests
         run: python tests/test_reliability.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install document-workflow test dependencies
+        run: python -m pip install -r skills/court-document-workflow/requirements.txt
+      - name: Run document and Calendar isolation tests
+        env:
+          PYTHONPATH: scripts/runtime/vendor
+        run: python -m unittest discover -s skills/court-document-workflow/tests -p 'test_*.py'
+      - name: Run model bridge and Calendar script tests
+        run: node --test skills/court-document-workflow/tests/*.test.cjs
+      - name: Run downloader and ledger isolation tests
+        env:
+          PYTHONPATH: scripts/runtime/vendor
+        run: python -m unittest discover -s skills/court-document-workflow/scripts/runtime/tests -p 'test_*.py'

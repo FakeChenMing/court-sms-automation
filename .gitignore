@@ -18,3 +18,11 @@ ocr-cache.json
 .delivery_manifest.json
 backups/
 dist/
+workflow_runs/
+document_ocr/
+attachment_transport/
+document_review*.json
+model_service.json
+workflow_health.json
+calendar_title_sources.json
+node_modules/
