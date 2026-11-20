@@ -962,43 +962,27 @@ def parse_mineru_markdown(markdown: str) -> dict:
     return fields
 
 
-def extract_mineru_fields(path: Path) -> dict:
-    if not MINERU_BIN.is_file():
-        LOGGER.error("MinerU OCR 不可用：%s", MINERU_BIN)
-        return {}
-    key = ocr_cache_key(path)
-    cache = load_ocr_cache()
-    cached = cache.get(key)
-    if isinstance(cached, dict):
-        return cached
+def extract_mineru_fields(path: Path, include_text: bool = False) -> dict:
+    # Compatibility entry for older notice parsers.
     try:
-        with tempfile.TemporaryDirectory(prefix="court-summons-ocr-") as temp_dir:
-            temp_root = Path(temp_dir)
-            temp_pdf = temp_root / path.name
-            output_dir = temp_root / "output"
-            shutil.copy2(path, temp_pdf)
-            result = subprocess.run(
-                [str(MINERU_BIN), "-p", str(temp_pdf), "-o", str(output_dir), "-b", "pipeline"],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=240,
-            )
-            if result.returncode != 0:
-                LOGGER.error("MinerU OCR 失败 path=%s stderr=%s", path, result.stderr[-2000:])
-                return {}
-            markdown_files = sorted(output_dir.rglob("*.md"))
-            if not markdown_files:
-                LOGGER.error("MinerU OCR 未生成 Markdown：%s", path)
-                return {}
-            fields = parse_mineru_markdown(markdown_files[0].read_text(encoding="utf-8"))
+        from quark_ocr import read
+        text = "\n".join(page["text"] for page in read(path))
     except Exception:
-        LOGGER.exception("MinerU OCR 异常：%s", path)
+        LOGGER.exception("排期材料读取失败 path=%s",path)
         return {}
-    if fields:
-        cache[key] = fields
-        save_ocr_cache(cache)
-        LOGGER.info("MinerU OCR 字段修复成功 path=%s fields=%s", path, sorted(fields))
+    compact = compact_pdf_text(text)
+    fields = {"_text": text}
+    for key, labels, ends in [
+        ("party", ("被传唤人",), ("工作单位", "住址", "地址", "应到时间", "传唤事由")),
+        ("location", ("应到处所", "应到场所", "到庭地点", "开庭地点"), ("注意事项", "适用程序", "审判员", "书记员")),
+        ("time", ("应到时间", "开庭时间"), ("应到处所", "应到场所", "到庭地点", "开庭地点")),
+        ("cause", ("案由",), ("被传唤人", "住所", "传唤事由")),
+    ]:
+        for label in labels:
+            value = extract_compact_field(compact,label,ends)
+            if value:
+                fields[key] = value
+                break
     return fields
 
 
