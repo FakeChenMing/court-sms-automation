@@ -12,7 +12,7 @@
 
 计算事件还须 calculation_spec={anchor_date:"YYYY-MM-DD",amount:整数,unit:"calendar_days/working_days/months/years",direction:1或-1,adjustment:"none/next_working/previous_working"}；anchor_evidence须含date；holiday_check={official_url:输入相应年度官方URL,checked_at:核验日期}。具体排期、查封届满本身不是诉讼提交截止，不机械顺延。续保提前申请遇休息日不得机械向后推迟减损提前天数；选更早工作日须说明为内部管理日期。程序独立复算，不一致拒绝写入。
 
-若输入页needs_visual_review=true，代表该页已运行OCR但文字不足，必须在后续原图复核中判断；不能把印章落款页当成漏掉正文，也不能把此页输出伪装为完整OCR。页面确有未识别的办理日期时须unresolved，不能凭猜测登记。真实空白/仅印章落款可记录其性质，不阻止其他清晰页的明确日程，但保留该页OCR质量状态。
+若输入页needs_visual_review=true，代表该页含须核原图的关键字段、手写、签章或文字存在异常，必须在后续原图复核中判断；不能把印章落款页当成漏掉正文，也不能把此页输出伪装为完整OCR。页面确有未识别的办理日期时须unresolved，不能凭猜测登记。真实空白/仅印章落款可记录其性质，不阻止其他清晰页的明确日程，但保留该页OCR质量状态。
 
 16. 文书明确写“至调查日内”或“至开庭日内”，而具体日历日期在同案另一通知的，可用document_explicit全天事件，必须增加date_reference={source_doc,source_page,source_quote}，同时保存期限规定原句与所指排期日期原句。只适用明确引用同案排期日内的关系，不能借此推算其他期限；“前X天”等仍需calculated。
 
