@@ -3,6 +3,7 @@ import json,base64,hashlib,fcntl,time
 from pathlib import Path
 from urllib.request import build_opener,ProxyHandler,Request
 from document_ocr import STATE,clean,fitz
+from quark_ocr import read as publish_reviewed_text
 from court_schedule_notices import memory_fraction
 
 def read_page(document,page):
@@ -13,7 +14,13 @@ def read_page(document,page):
  if manual.exists():
   attestation=json.loads(manual.read_text())
   if attestation.get('source_sha256')!=sha or attestation.get('page')!=page or attestation.get('reviewed') is not True:raise ValueError('原图核对记录不匹配')
+  publish_reviewed_text(source,allow_cloud=False)
   return {'doc_id':document['id'],'page':page,'engine':'direct source-image review','text':'','quality':'实际原图核对记录；未宣称第二OCR完整','manual_source_review':attestation,'readable_text':False}
+ current=document['pages'][page-1]
+ if 'ocr_anomaly' in current and not current['ocr_anomaly']:
+  # Only abnormal pages go to the local engine. A selected critical field
+  # still needs its own source-image attestation.
+  raise ValueError(f'第{page}页关键字段须核对原图并保存核对记录')
  saved=cache/f'service-page-{page}.json'
  if not saved.exists():
   (Path.home()/'.codex/skills/paddleocr-text-recognition/SKILL.md').read_text()

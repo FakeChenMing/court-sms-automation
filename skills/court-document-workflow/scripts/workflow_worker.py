@@ -493,7 +493,7 @@ async def process_case(case,docs,targets,preview,revision=0):
      record=json.loads(manual.read_text())
      if record.get('source_sha256')==d['sha256'] and record.get('page')==page['page']:page['source_visual_review']=record
    documents.append(info)
-   if d['ocr_status'] not in ('complete','partial'):ledger.register_ocr(d['id'],info['text_path'],'MinerU forced OCR with targeted repair',info['skill_path'],info['page_count'],info['source_sha256'],info.get('uncertain_pages',[]))
+   if d['ocr_status'] not in ('complete','partial'):ledger.register_ocr(d['id'],info['text_path'],' + '.join(dict.fromkeys(p['engine'] for p in info['pages'])),info['skill_path'],info['page_count'],info['source_sha256'],info.get('uncertain_pages',[]))
   available_ids={d['id'] for d in documents}
   ready_targets=[id for id in targets if id in available_ids]
   if not ready_targets:
@@ -508,7 +508,7 @@ async def process_case(case,docs,targets,preview,revision=0):
     saved.pop('receipt_binding',None)
     if binding:saved['receipt_binding']=binding
    info.update(id=d['id'],received_metadata=d['deliveries'],receipt_binding=binding);documents.append(info)
-   ledger.register_ocr(d['id'],info['text_path'],'Skill OCR with repair',info['skill_path'],info['page_count'],info['source_sha256'],info.get('uncertain_pages',[]))
+   ledger.register_ocr(d['id'],info['text_path'],' + '.join(dict.fromkeys(p['engine'] for p in info['pages'])),info['skill_path'],info['page_count'],info['source_sha256'],info.get('uncertain_pages',[]))
    ready_targets=[d['id']]
   targets=ready_targets
   for info in documents:info["context_revision"]=revision
