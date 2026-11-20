@@ -74,3 +74,7 @@ python3 scripts/manage.py activate
 默认任务标签 `local.court-sms-automation`，间隔60秒、登录时运行。电脑休眠或用户未登录时不能保证准时执行。再次核对实际后台运行、数据库权限、提醒回读；不要单凭启动命令返回成功验收。
 
 此后台不依赖 Codex 每分钟运行。Skill 是安装/维护入口；真正的定时处理由本机 LaunchAgent 完成。本包不自动创建任何 Codex 晨检或跟进自动化。
+
+## 排期字段的 OCR 依赖
+
+在运行入口的 Python 环境安装 `PyMuPDF==1.26.4` 和 `Pillow`。仅在允许将待识别页发送至夸克时配置 AI Agent 密钥，可设置环境变量 `SCAN_WEBSERVICE_KEY`，或在 `QUARK_OCR_DIR` 指定的私有目录中保存为 `agent-key`。日常和后台使用同一个缓存目录和账户。
